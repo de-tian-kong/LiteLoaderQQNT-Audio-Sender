@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -c \"e:\\\\桌面\\\\LiteLoaderQQNT-TTS-main\\\\src\\\\preload.js\")",
+      "Bash(node --check \"e:\\\\桌面\\\\LiteLoaderQQNT-TTS-main\\\\src\\\\renderer.js\")",
+      "Bash(node --check \"e:\\\\桌面\\\\LiteLoaderQQNT-TTS-main\\\\src\\\\utils\\\\rendererUtils.js\")",
+      "Bash(node --check \"e:\\\\桌面\\\\LiteLoaderQQNT-TTS-main\\\\src\\\\preload.js\")",
+      "Bash(node --check \"e:\\\\桌面\\\\LiteLoaderQQNT-TTS-main\\\\src\\\\main.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Administrator.WIN-46F3LRLLAC0\\\\Documents\\\\LiteloaderQQNT\\\\plugins\\\\QQNT-TTS-main\\\\src\\\\renderer.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Administrator.WIN-46F3LRLLAC0\\\\Documents\\\\LiteloaderQQNT\\\\plugins\\\\QQNT-TTS-main\\\\src\\\\preload.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Administrator.WIN-46F3LRLLAC0\\\\Documents\\\\LiteloaderQQNT\\\\plugins\\\\QQNT-TTS-main\\\\src\\\\main.js\")",
+      "Bash(node --check \"c:\\\\Users\\\\Administrator.WIN-46F3LRLLAC0\\\\Documents\\\\LiteloaderQQNT\\\\plugins\\\\QQNT-TTS-main\\\\src\\\\utils\\\\rendererUtils.js\")",
+      "Bash(node --check \"src/renderer.js\")",
+      "Bash(node --check \"src/main.js\")",
+      "Bash(node --check \"src/utils/rendererUtils.js\")"
+    ]
+  }
+}
