@@ -11,13 +11,13 @@ const logger = {
     },
     error: function (...args) {
         console.error(`[Audio-Sender]`, ...args);
-        alert(`[Audio-Sender]` + args.join(" "));
     }
 };
 
 // 拖拽发送音频文件功能
 document.addEventListener('drop', async e => {
-    if (document.querySelector(".audio-msg-input") != undefined) {
+    const audioInput = document.querySelector(".audio-msg-input");
+    if (audioInput !== null && (audioInput.contains(e.target) || audioInput === e.target)) {
         e.preventDefault();
         e.stopPropagation();
 
@@ -39,9 +39,19 @@ document.addEventListener('drop', async e => {
 
                 if (result.res == "success") {
                     const silkData = await audio_sender.getSilk(result.file);
+                    if (silkData.res === "error") {
+                        logger.warn("Silk 编码失败:", silkData.msg);
+                        continue;
+                    }
+
                     logger.info("Silk 编码完成:", silkData);
                     await currentContact.sendPttMessage(silkData);
                     logger.info("消息发送完成");
+
+                    // 清理临时 silk 文件
+                    if (silkData.path !== file.path) {
+                        await audio_sender.cleanupTempFile(silkData.path);
+                    }
                 } else {
                     logger.warn("转换失败:", result.msg);
                 }

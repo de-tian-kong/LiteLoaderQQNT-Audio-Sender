@@ -4,7 +4,7 @@ const fs = require("fs");
 const os = require('os');
 const path = require("path");
 const util = require('util');
-const exec = util.promisify(require("child_process").exec);
+const execFile = util.promisify(require("child_process").execFile);
 const { encode, getDuration } = require("../silk-wasm");
 const crypto = require("crypto");
 
@@ -66,6 +66,7 @@ ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
         if (getFileHeader(filePath) === "02232153494c4b") {
             const duration = getDuration(fileBuffer);
             return {
+                res: "success",
                 path: filePath,
                 duration: duration,
                 fileMd5: fileMd5,
@@ -78,6 +79,7 @@ ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
         fs.writeFileSync(silkPath, silk.data);
 
         return {
+            res: "success",
             path: silkPath,
             duration: silk.duration,
             fileMd5: fileMd5,
@@ -102,11 +104,16 @@ ipcMain.handle(
             }
 
             // 使用 ffmpeg 转换为 WAV 格式
-            const fileNewPath = path.join(dataPath, `${fileName}.wav`);
-            const ffmpegCmd = `ffmpeg -y -i "${filePath}" -acodec pcm_s16le -f s16le -ac 1 -ar 24000 "${fileNewPath}" -loglevel error`;
+            const uniqueName = `${crypto.randomUUID()}_${fileName}.wav`;
+            const fileNewPath = path.join(dataPath, uniqueName);
 
             try {
-                const { stderr } = await exec(ffmpegCmd);
+                const { stderr } = await execFile("ffmpeg", [
+                    "-y", "-i", filePath,
+                    "-acodec", "pcm_s16le", "-f", "s16le",
+                    "-ac", "1", "-ar", "24000",
+                    fileNewPath, "-loglevel", "error"
+                ]);
                 if (stderr) {
                     logger.error("FFmpeg stderr:", stderr);
                     return { res: "error", msg: `FFmpeg conversion error: ${stderr}` };
@@ -144,6 +151,17 @@ ipcMain.handle('LiteLoader.audio_sender.copyFileToCache', async (event, oldPath,
     } catch (error) {
         logger.error(error);
         return { res: "error", msg: error };
+    }
+});
+
+// 清理临时文件
+ipcMain.handle("LiteLoader.audio_sender.cleanupTempFile", async (event, filePath) => {
+    try {
+        if (filePath && filePath.startsWith(pttPath) && fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+    } catch (error) {
+        logger.warn("清理临时文件失败:", error);
     }
 });
 

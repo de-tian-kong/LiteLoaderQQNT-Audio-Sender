@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("audio_sender", {
     convertAndSaveFile: (filePath) => ipcRenderer.invoke('LiteLoader.audio_sender.convertAndSaveFile', filePath),
     // 复制文件到缓存目录
     copyFileToCache: (oldPath, newPath) => ipcRenderer.invoke("LiteLoader.audio_sender.copyFileToCache", oldPath, newPath),
+    // 清理临时文件
+    cleanupTempFile: (filePath) => ipcRenderer.invoke("LiteLoader.audio_sender.cleanupTempFile", filePath),
 
     // 获取窗口Id
     getWebContentId: () => ipcRenderer.sendSync("LiteLoader.audio_sender.getWebContentId"),
@@ -17,20 +19,28 @@ contextBridge.exposeInMainWorld("audio_sender", {
         const webContentId = ipcRenderer.sendSync("LiteLoader.audio_sender.getWebContentId");
         let resolve;
         if (awaitCallback) {
-            resolve = new Promise((res) => {
+            resolve = new Promise((res, rej) => {
+                const timeout = setTimeout(() => {
+                    ipcRenderer.off(`RM_IPCFROM_MAIN${webContentId}`, onEvent);
+                    rej(new Error("nativeCall timeout"));
+                }, 30000);
+
                 function onEvent(...args) {
                     if (typeof awaitCallback === "boolean") {
                         if (args[1]?.callbackId === callbackId) {
+                            clearTimeout(timeout);
                             ipcRenderer.off(`RM_IPCFROM_MAIN${webContentId}`, onEvent);
                             res(args[2]);
                         }
                     } else if (Array.isArray(awaitCallback)) {
                         if (awaitCallback.includes(args?.[1]?.cmdName)) {
+                            clearTimeout(timeout);
                             ipcRenderer.off(`RM_IPCFROM_MAIN${webContentId}`, onEvent);
                             res(args[2]);
                         }
                     } else {
                         if (args?.[2]?.cmdName === awaitCallback) {
+                            clearTimeout(timeout);
                             ipcRenderer.off(`RM_IPCFROM_MAIN${webContentId}`, onEvent);
                             res(args[2]);
                         }

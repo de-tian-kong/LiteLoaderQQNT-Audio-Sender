@@ -87,7 +87,8 @@ function findShortestPathAndValue(rootObject, targetKey) {
 
             // 验证路径是否真的可访问
             try {
-                if (eval(finalPath) === finalValue) {
+                const relativePath = path === 'app' ? targetKey : path.slice(4) + '.' + targetKey;
+                if (getValueByPath(rootObject, relativePath) === finalValue) {
                     return { path: finalPath, value: finalValue };
                 }
             } catch (e) {
