@@ -209,7 +209,7 @@ export class Contact {
      */
     async sendPttMessage(silkData, msgId = undefined, waitCallback = false) {
         const silkPath = silkData.path;
-        const duration = silkData.duration / 1024;
+        const duration = silkData.duration / 1000; // 将毫秒转换为秒
         const fileMd5 = silkData.fileMd5;
         if (!msgId) {
             msgId = `7${Array.from({ length: 18 }, () => Math.floor(Math.random() * 10)).join('')}`;
