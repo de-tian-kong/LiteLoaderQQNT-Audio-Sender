@@ -3,16 +3,16 @@ import { Contact } from './utils/rendererUtils.js';
 // 运行在 Electron 渲染进程 下的页面脚本
 
 const logger = {
-    info: function (...args) {
-        console.log(`[Audio-Sender]`, ...args);
-    },
-    warn: function (...args) {
-        console.warn(`[Audio-Sender]`, ...args);
-    },
-    error: function (...args) {
-        console.error(`[Audio-Sender]`, ...args);
-    }
+    info: (...args) => console.log(`[Audio-Sender]`, ...args),
+    warn: (...args) => console.warn(`[Audio-Sender]`, ...args),
+    error: (...args) => console.error(`[Audio-Sender]`, ...args),
 };
+
+// 支持的音频文件扩展名
+const AUDIO_EXTENSIONS = new Set([
+    '.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.wma', '.silk',
+    '.opus', '.amr', '.ape', '.alac', '.pcm'
+]);
 
 // 拖拽发送音频文件功能
 
@@ -43,6 +43,15 @@ document.addEventListener('drop', async e => {
         // 串行处理文件，避免同时处理多个文件导致卡顿
         for (const file of files) {
             try {
+                // 验证文件是否为支持的音频格式
+                const ext = file.name.includes('.')
+                    ? '.' + file.name.split('.').pop().toLowerCase()
+                    : '';
+                if (!AUDIO_EXTENSIONS.has(ext)) {
+                    logger.warn("跳过不支持的文件格式:", file.name);
+                    continue;
+                }
+
                 logger.info("开始处理文件:", file.name);
                 const result = await audio_sender.convertAndSaveFile(file.path);
                 logger.info("转换结果:", result);

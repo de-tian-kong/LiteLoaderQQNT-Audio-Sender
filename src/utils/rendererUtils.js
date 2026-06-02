@@ -71,14 +71,15 @@ function findShortestPathAndValue(rootObject, targetKey) {
         '__vueParentComponent', 'parent', 'provides'
     ]);
 
-    // 使用广度优先搜索 (BFS)
+    // 使用广度优先搜索 (BFS)，使用索引指针避免 shift() 的 O(n) 开销
     const queue = [{ obj: rootObject, path: 'app' }]; // 队列中存储对象及其路径
     const visited = new Set(); // 存储已经访问过的对象，防止循环引用
+    let queueIndex = 0; // 队列读取指针
 
     visited.add(rootObject);
 
-    while (queue.length > 0) {
-        const { obj, path } = queue.shift(); // 取出队列头的元素
+    while (queueIndex < queue.length) {
+        const { obj, path } = queue[queueIndex++]; // 取出队列头的元素
 
         // 检查当前对象是否直接包含目标 key
         if (obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, targetKey)) {
@@ -216,7 +217,7 @@ export class Contact {
         }
 
         // 并行获取文件大小和缓存路径
-        const [fileSize, cachePath] = await Promise.all([
+        const [fileSizeResult, cachePath] = await Promise.all([
             // 获取文件大小
             audio_sender.nativeCall(
                 {
@@ -255,6 +256,14 @@ export class Contact {
                 true,
             ),
         ]);
+
+        const fileSize = fileSizeResult ?? 0;
+        if (!fileSize) {
+            throw new Error("获取文件大小失败");
+        }
+        if (!cachePath) {
+            throw new Error("获取缓存路径失败");
+        }
 
         // 复制文件到缓存目录
         const copyResult = await audio_sender.copyFileToCache(silkPath, cachePath);

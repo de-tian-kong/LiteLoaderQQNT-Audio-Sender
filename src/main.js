@@ -8,16 +8,26 @@ const { encode, getDuration } = require("../silk-wasm");
 const crypto = require("crypto");
 
 const logger = {
-    info: function (...args) {
-        console.log(`[Audio-Sender]`, ...args);
-    },
-    warn: function (...args) {
-        console.warn(`[Audio-Sender]`, ...args);
-    },
-    error: function (...args) {
-        console.error(`[Audio-Sender]`, ...args);
-    }
+    info: (...args) => console.log(`[Audio-Sender]`, ...args),
+    warn: (...args) => console.warn(`[Audio-Sender]`, ...args),
+    error: (...args) => console.error(`[Audio-Sender]`, ...args),
 };
+
+let ffmpegAvailable = true;
+
+/**
+ * 检测 ffmpeg 是否可用。
+ * 在插件启动时调用，如果不可用则记录警告。
+ */
+async function checkFfmpegAvailability() {
+    try {
+        await execFile("ffmpeg", ["-version"]);
+        ffmpegAvailable = true;
+    } catch {
+        ffmpegAvailable = false;
+        logger.warn("未检测到 ffmpeg，非 silk 格式的音频文件将无法转换。请将 ffmpeg 添加至环境变量。");
+    }
+}
 
 // 获取数据路径
 const dataPath = LiteLoader.plugins["audio_sender"].path.data;
@@ -76,7 +86,8 @@ module.exports.onBrowserWindowCreated = (window) => {
     }
     // 启动时清理过期临时文件
     cleanupOldTempFiles(pttPath, TEMP_FILE_MAX_AGE_MS);
-    cleanupOldTempFiles(dataPath, TEMP_FILE_MAX_AGE_MS);
+    // 检测 ffmpeg 可用性
+    checkFfmpegAvailability();
 };
 
 // 获取文件头信息
@@ -101,12 +112,15 @@ ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
     try {
         const fileName = `${path.basename(filePath)}.silk`;
 
-        // 异步读取文件并计算 MD5
+        // 先检查文件头，判断是否已经是 Silk 格式（避免不必要地读取整个文件）
+        const header = await getFileHeader(filePath);
+        const isSilk = header === "02232153494c4b";
+
+        // 读取文件并计算 MD5
         const fileBuffer = await fs.promises.readFile(filePath);
         const fileMd5 = crypto.createHash('md5').update(fileBuffer).digest('hex');
 
-        // 检查是否已经是 Silk 格式
-        if (await getFileHeader(filePath) === "02232153494c4b") {
+        if (isSilk) {
             const duration = getDuration(fileBuffer);
             return {
                 res: "success",
@@ -133,7 +147,7 @@ ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
     }
 });
 
-// 转换本地文件格式并保存到数据目录下
+// 转换本地文件格式并保存到临时目录下
 ipcMain.handle(
     'LiteLoader.audio_sender.convertAndSaveFile',
     async (event, filePath) => {
@@ -146,9 +160,14 @@ ipcMain.handle(
                 return { res: "success", file: filePath, origin: filePath };
             }
 
-            // 使用 ffmpeg 转换为 PCM 格式
+            // 检查 ffmpeg 是否可用
+            if (!ffmpegAvailable) {
+                return { res: "error", msg: "未检测到 ffmpeg，无法转换非 silk 格式的音频文件。请将 ffmpeg 添加至环境变量后重启 QQ。" };
+            }
+
+            // 使用 ffmpeg 转换为 PCM 格式（临时文件写入 pttPath）
             const uniqueName = `${crypto.randomUUID()}_${fileName}.pcm`;
-            const fileNewPath = path.join(dataPath, uniqueName);
+            const fileNewPath = path.join(pttPath, uniqueName);
 
             try {
                 await execFile("ffmpeg", [
