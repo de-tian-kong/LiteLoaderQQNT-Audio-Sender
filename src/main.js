@@ -1,7 +1,6 @@
 // 运行在 Electron 主进程 下的插件入口
 const { ipcMain } = require("electron");
 const fs = require("fs");
-const os = require('os');
 const path = require("path");
 const util = require('util');
 const execFile = util.promisify(require("child_process").execFile);
@@ -36,16 +35,16 @@ module.exports.onBrowserWindowCreated = (window) => {
 };
 
 // 获取文件头信息
-function getFileHeader(filePath) {
+async function getFileHeader(filePath) {
     const bytesToRead = 7;
     try {
-        const buffer = fs.readFileSync(filePath, {
-            encoding: null,
-            flag: "r",
-            length: bytesToRead,
-        });
-        const fileHeader = buffer.toString("hex", 0, bytesToRead);
-        return fileHeader;
+        const fh = await fs.promises.open(filePath, 'r');
+        try {
+            const { buffer } = await fh.read(Buffer.alloc(bytesToRead), 0, bytesToRead, 0);
+            return buffer.toString("hex", 0, bytesToRead);
+        } finally {
+            await fh.close();
+        }
     } catch (err) {
         logger.error("读取文件错误:", err);
         return;
@@ -57,13 +56,12 @@ ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
     try {
         const fileName = `${path.basename(filePath)}.silk`;
 
-        // 读取文件并计算 MD5
-        const fileBuffer = fs.readFileSync(filePath);
-        const hash = crypto.createHash('md5').update(fileBuffer);
-        const fileMd5 = hash.digest('hex');
+        // 异步读取文件并计算 MD5
+        const fileBuffer = await fs.promises.readFile(filePath);
+        const fileMd5 = crypto.createHash('md5').update(fileBuffer).digest('hex');
 
         // 检查是否已经是 Silk 格式
-        if (getFileHeader(filePath) === "02232153494c4b") {
+        if (await getFileHeader(filePath) === "02232153494c4b") {
             const duration = getDuration(fileBuffer);
             return {
                 res: "success",
@@ -76,7 +74,7 @@ ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
         // 编码为 Silk 格式
         const silk = await encode(fileBuffer, 24000);
         const silkPath = path.join(pttPath, fileName);
-        fs.writeFileSync(silkPath, silk.data);
+        await fs.promises.writeFile(silkPath, silk.data);
 
         return {
             res: "success",
@@ -103,28 +101,27 @@ ipcMain.handle(
                 return { res: "success", file: filePath, origin: filePath };
             }
 
-            // 使用 ffmpeg 转换为 WAV 格式
-            const uniqueName = `${crypto.randomUUID()}_${fileName}.wav`;
+            // 使用 ffmpeg 转换为 PCM 格式
+            const uniqueName = `${crypto.randomUUID()}_${fileName}.pcm`;
             const fileNewPath = path.join(dataPath, uniqueName);
 
             try {
-                const { stderr } = await execFile("ffmpeg", [
-                    "-y", "-i", filePath,
+                await execFile("ffmpeg", [
+                    "-y", "-loglevel", "error",
+                    "-i", filePath,
                     "-acodec", "pcm_s16le", "-f", "s16le",
                     "-ac", "1", "-ar", "24000",
-                    fileNewPath, "-loglevel", "error"
+                    fileNewPath
                 ]);
-                if (stderr) {
-                    logger.error("FFmpeg stderr:", stderr);
-                    return { res: "error", msg: `FFmpeg conversion error: ${stderr}` };
-                }
             } catch (error) {
                 logger.error("FFmpeg execution error:", error);
                 return { res: "error", msg: `FFmpeg execution failed: ${error.message}` };
             }
 
-            // 检查转换后的文件是否存在
-            if (!fs.existsSync(fileNewPath)) {
+            // 异步检查转换后的文件是否存在
+            try {
+                await fs.promises.access(fileNewPath, fs.constants.F_OK);
+            } catch {
                 return { res: "error", msg: "Converted file not found" };
             }
 
@@ -142,23 +139,21 @@ ipcMain.handle('LiteLoader.audio_sender.copyFileToCache', async (event, oldPath,
         // 获取目标文件路径中的目录部分
         const dir = path.dirname(newPath);
         // 如果目录不存在，就创建它
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
+        await fs.promises.mkdir(dir, { recursive: true });
         // 复制文件
-        fs.copyFileSync(oldPath, newPath);
+        await fs.promises.copyFile(oldPath, newPath);
         return { res: "success", path: newPath };
     } catch (error) {
         logger.error(error);
-        return { res: "error", msg: error };
+        return { res: "error", msg: error.message || String(error) };
     }
 });
 
 // 清理临时文件
 ipcMain.handle("LiteLoader.audio_sender.cleanupTempFile", async (event, filePath) => {
     try {
-        if (filePath && filePath.startsWith(pttPath) && fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+        if (filePath && (filePath.startsWith(pttPath) || filePath.startsWith(dataPath))) {
+            await fs.promises.unlink(filePath);
         }
     } catch (error) {
         logger.warn("清理临时文件失败:", error);

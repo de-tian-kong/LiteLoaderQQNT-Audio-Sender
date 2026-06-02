@@ -207,7 +207,7 @@ export class Contact {
      * @param { Object } silkData 包含 path, duration, fileMd5 的语音数据对象。
      * @param { String } msgId 消息的 **msgId**，如果此参数为空则会随机生成。
      */
-    async sendPttMessage(silkData, msgId = undefined) {
+    async sendPttMessage(silkData, msgId = undefined, waitCallback = false) {
         const path = silkData.path;
         const duration = silkData.duration / 1024;
         const fileMd5 = silkData.fileMd5;
@@ -257,7 +257,10 @@ export class Contact {
         ]);
 
         // 复制文件到缓存目录
-        await audio_sender.copyFileToCache(path, cachePath);
+        const copyResult = await audio_sender.copyFileToCache(path, cachePath);
+        if (copyResult.res === "error") {
+            throw new Error(`复制文件到缓存失败: ${copyResult.msg}`);
+        }
 
         // 调用消息发送函数
         await audio_sender.nativeCall(
@@ -297,7 +300,7 @@ export class Contact {
                     msgAttributeInfos: new Map()
                 }]
             },
-            null,
+            waitCallback,
         );
     }
 

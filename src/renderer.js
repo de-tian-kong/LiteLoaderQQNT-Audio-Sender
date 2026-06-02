@@ -41,16 +41,25 @@ document.addEventListener('drop', async e => {
                     const silkData = await audio_sender.getSilk(result.file);
                     if (silkData.res === "error") {
                         logger.warn("Silk 编码失败:", silkData.msg);
+                        // 清理转换产生的临时文件
+                        if (result.file !== file.path) {
+                            await audio_sender.cleanupTempFile(result.file);
+                        }
                         continue;
                     }
 
                     logger.info("Silk 编码完成:", silkData);
-                    await currentContact.sendPttMessage(silkData);
+                    // 等待消息真正发送完成后再清理
+                    await currentContact.sendPttMessage(silkData, undefined, true);
                     logger.info("消息发送完成");
 
                     // 清理临时 silk 文件
                     if (silkData.path !== file.path) {
                         await audio_sender.cleanupTempFile(silkData.path);
+                    }
+                    // 清理 ffmpeg 转换产生的临时文件
+                    if (result.file !== file.path && result.file !== silkData.path) {
+                        await audio_sender.cleanupTempFile(result.file);
                     }
                 } else {
                     logger.warn("转换失败:", result.msg);
