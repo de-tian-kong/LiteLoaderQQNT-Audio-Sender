@@ -15,6 +15,16 @@ const logger = {
 };
 
 // 拖拽发送音频文件功能
+
+// 阻止语音输入区域的 dragover 默认行为，确保 drop 事件能正常触发
+document.addEventListener('dragover', e => {
+    const audioInput = document.querySelector(".audio-msg-input");
+    if (audioInput !== null && (audioInput.contains(e.target) || audioInput === e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+});
+
 document.addEventListener('drop', async e => {
     const audioInput = document.querySelector(".audio-msg-input");
     if (audioInput !== null && (audioInput.contains(e.target) || audioInput === e.target)) {

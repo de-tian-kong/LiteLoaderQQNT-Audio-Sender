@@ -23,6 +23,48 @@ const logger = {
 const dataPath = LiteLoader.plugins["audio_sender"].path.data;
 const pttPath = path.join(dataPath, "ptt");
 
+// 临时文件最大保留时间（1 小时）
+const TEMP_FILE_MAX_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * 获取 silk 临时文件的完整路径。
+ *
+ * @param { string } fileName 文件名。
+ * @returns { string } 临时文件的完整路径。
+ */
+function getSilkTempPath(fileName) {
+    return path.join(pttPath, fileName);
+}
+
+/**
+ * 清理过期的临时文件。
+ * 在插件启动时调用，移除上次运行遗留的旧文件。
+ *
+ * @param { string } dir 要扫描的目录。
+ * @param { number } maxAgeMs 文件最大保留时间（毫秒）。
+ */
+async function cleanupOldTempFiles(dir, maxAgeMs) {
+    try {
+        const now = Date.now();
+        const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isFile()) continue;
+            const filePath = path.join(dir, entry.name);
+            try {
+                const stat = await fs.promises.stat(filePath);
+                if (now - stat.mtimeMs > maxAgeMs) {
+                    await fs.promises.unlink(filePath);
+                    logger.info("已清理过期临时文件:", entry.name);
+                }
+            } catch {
+                // 忽略单个文件的清理错误
+            }
+        }
+    } catch (err) {
+        logger.warn("清理临时文件目录失败:", err);
+    }
+}
+
 module.exports.onBrowserWindowCreated = (window) => {
     // 创建数据文件夹
     if (!fs.existsSync(dataPath)) {
@@ -32,6 +74,9 @@ module.exports.onBrowserWindowCreated = (window) => {
     if (!fs.existsSync(pttPath)) {
         fs.mkdirSync(pttPath, { recursive: true });
     }
+    // 启动时清理过期临时文件
+    cleanupOldTempFiles(pttPath, TEMP_FILE_MAX_AGE_MS);
+    cleanupOldTempFiles(dataPath, TEMP_FILE_MAX_AGE_MS);
 };
 
 // 获取文件头信息
@@ -73,7 +118,7 @@ ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
 
         // 编码为 Silk 格式
         const silk = await encode(fileBuffer, 24000);
-        const silkPath = path.join(pttPath, fileName);
+        const silkPath = getSilkTempPath(fileName);
         await fs.promises.writeFile(silkPath, silk.data);
 
         return {
@@ -136,6 +181,14 @@ ipcMain.handle(
 // 复制文件到缓存目录
 ipcMain.handle('LiteLoader.audio_sender.copyFileToCache', async (event, oldPath, newPath) => {
     try {
+        // 路径安全校验：确保源文件在允许的目录下（防止读取任意文件）
+        const resolvedSource = path.resolve(oldPath);
+        const resolvedPttPath = path.resolve(pttPath);
+        const resolvedDataPath = path.resolve(dataPath);
+        if (!resolvedSource.startsWith(resolvedPttPath) && !resolvedSource.startsWith(resolvedDataPath)) {
+            return { res: "error", msg: "源文件路径不在允许的目录范围内" };
+        }
+
         // 获取目标文件路径中的目录部分
         const dir = path.dirname(newPath);
         // 如果目录不存在，就创建它

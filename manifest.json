@@ -4,12 +4,12 @@
     "name": "音频发送",
     "slug": "audio_sender",
     "description": "支持拖拽发送音频文件到聊天窗口。",
-    "version": "1.0.0",
+    "version": "0.0.3",
     "icon": "./icon.png",
     "authors": [
         {
-            "name": "Mousher Lily",
-            "link": "https://github.com/lclichen"
+            "name": "de-tian-kong",
+            "link": "https://github.com/de-tian-kong"
         }
     ],
     "platform": [
@@ -23,10 +23,10 @@
         "preload": "./src/preload.js"
     },
     "repository": {
-        "repo": "lclichen/LiteLoaderQQNT-TTS",
+        "repo": "de-tian-kong/LiteLoaderQQNT-Audio-Sender",
         "branch": "main",
         "release": {
-            "tag": "1.0.0"
+            "tag": "0.0.3"
         }
     }
 }

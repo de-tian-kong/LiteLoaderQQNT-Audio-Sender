@@ -11,11 +11,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Nodejs
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: build
+      - name: Build
         run: |
           echo "Creating a release zip file..."
           zip -r audio_sender.zip silk-wasm/ src/ icon.png manifest.json README.md

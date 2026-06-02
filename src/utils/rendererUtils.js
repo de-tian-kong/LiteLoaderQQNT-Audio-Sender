@@ -163,7 +163,7 @@ export class Contact {
 
         // 4. 最终检查
         if (!curAioData) {
-            console.error("❌ 致命错误: 所有方法都未能获取到 curAioData。无法执行复读操作。");
+            console.error("❌ 致命错误: 所有方法都未能获取到 curAioData。无法发送语音消息。");
             return; // 中断执行
         }
 
@@ -208,7 +208,7 @@ export class Contact {
      * @param { String } msgId 消息的 **msgId**，如果此参数为空则会随机生成。
      */
     async sendPttMessage(silkData, msgId = undefined, waitCallback = false) {
-        const path = silkData.path;
+        const silkPath = silkData.path;
         const duration = silkData.duration / 1024;
         const fileMd5 = silkData.fileMd5;
         if (!msgId) {
@@ -226,7 +226,7 @@ export class Contact {
                 {
                     cmdName: "getFileSize",
                     cmdType: "invoke",
-                    payload: [path],
+                    payload: [silkPath],
                 },
                 true,
             ),
@@ -257,7 +257,7 @@ export class Contact {
         ]);
 
         // 复制文件到缓存目录
-        const copyResult = await audio_sender.copyFileToCache(path, cachePath);
+        const copyResult = await audio_sender.copyFileToCache(silkPath, cachePath);
         if (copyResult.res === "error") {
             throw new Error(`复制文件到缓存失败: ${copyResult.msg}`);
         }
