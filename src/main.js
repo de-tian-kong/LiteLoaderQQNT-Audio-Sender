@@ -14,12 +14,15 @@ const logger = {
 };
 
 let ffmpegAvailable = true;
+let ffmpegChecked = false;
 
 /**
  * 检测 ffmpeg 是否可用。
- * 在插件启动时调用，如果不可用则记录警告。
+ * 只在首次调用时执行检测，后续调用直接跳过。
  */
 async function checkFfmpegAvailability() {
+    if (ffmpegChecked) return;
+    ffmpegChecked = true;
     try {
         await execFile("ffmpeg", ["-version"]);
         ffmpegAvailable = true;
@@ -110,17 +113,22 @@ async function getFileHeader(filePath) {
 // 转换音频为 Silk 格式
 ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
     try {
+        if (!filePath || typeof filePath !== 'string') {
+            return { res: "error", msg: "文件路径无效" };
+        }
+
         const fileName = `${path.basename(filePath)}.silk`;
 
         // 先检查文件头，判断是否已经是 Silk 格式（避免不必要地读取整个文件）
         const header = await getFileHeader(filePath);
         const isSilk = header === "02232153494c4b";
 
-        // 读取文件并计算 MD5
+        // 读取文件
         const fileBuffer = await fs.promises.readFile(filePath);
-        const fileMd5 = crypto.createHash('md5').update(fileBuffer).digest('hex');
 
         if (isSilk) {
+            // Silk 文件：MD5 基于原始文件内容
+            const fileMd5 = crypto.createHash('md5').update(fileBuffer).digest('hex');
             const duration = getDuration(fileBuffer);
             return {
                 res: "success",
@@ -134,6 +142,9 @@ ipcMain.handle("LiteLoader.audio_sender.getSilk", async (event, filePath) => {
         const silk = await encode(fileBuffer, 24000);
         const silkPath = getSilkTempPath(fileName);
         await fs.promises.writeFile(silkPath, silk.data);
+
+        // 非 Silk 文件：MD5 基于编码后的 silk 数据（与写入缓存的文件一致）
+        const fileMd5 = crypto.createHash('md5').update(silk.data).digest('hex');
 
         return {
             res: "success",

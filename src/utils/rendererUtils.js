@@ -72,13 +72,14 @@ function findShortestPathAndValue(rootObject, targetKey) {
     ]);
 
     // 使用广度优先搜索 (BFS)，使用索引指针避免 shift() 的 O(n) 开销
+    const MAX_QUEUE_SIZE = 50000; // 防止在超大对象上遍历过深
     const queue = [{ obj: rootObject, path: 'app' }]; // 队列中存储对象及其路径
     const visited = new Set(); // 存储已经访问过的对象，防止循环引用
     let queueIndex = 0; // 队列读取指针
 
     visited.add(rootObject);
 
-    while (queueIndex < queue.length) {
+    while (queueIndex < queue.length && queueIndex < MAX_QUEUE_SIZE) {
         const { obj, path } = queue[queueIndex++]; // 取出队列头的元素
 
         // 检查当前对象是否直接包含目标 key

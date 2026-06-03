@@ -17,7 +17,9 @@ const AUDIO_EXTENSIONS = new Set([
 // 拖拽发送音频文件功能
 
 // 阻止语音输入区域的 dragover 默认行为，确保 drop 事件能正常触发
+// 先检查是否为文件拖拽，避免对非文件拖拽事件做无用的 DOM 查询
 document.addEventListener('dragover', e => {
+    if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
     const audioInput = document.querySelector(".audio-msg-input");
     if (audioInput !== null && (audioInput.contains(e.target) || audioInput === e.target)) {
         e.preventDefault();
