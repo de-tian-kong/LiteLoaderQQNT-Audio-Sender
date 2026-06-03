@@ -58,7 +58,7 @@ document.addEventListener('drop', async e => {
                 const result = await audio_sender.convertAndSaveFile(file.path);
                 logger.info("转换结果:", result);
 
-                if (result.res == "success") {
+                if (result.res === "success") {
                     const silkData = await audio_sender.getSilk(result.file);
                     if (silkData.res === "error") {
                         logger.warn("Silk 编码失败:", silkData.msg);

@@ -78,7 +78,7 @@ async function cleanupOldTempFiles(dir, maxAgeMs) {
     }
 }
 
-module.exports.onBrowserWindowCreated = (window) => {
+module.exports.onBrowserWindowCreated = async (window) => {
     // 创建数据文件夹
     if (!fs.existsSync(dataPath)) {
         fs.mkdirSync(dataPath, { recursive: true });
@@ -90,7 +90,7 @@ module.exports.onBrowserWindowCreated = (window) => {
     // 启动时清理过期临时文件
     cleanupOldTempFiles(pttPath, TEMP_FILE_MAX_AGE_MS);
     // 检测 ffmpeg 可用性
-    checkFfmpegAvailability();
+    await checkFfmpegAvailability();
 };
 
 // 获取文件头信息
@@ -177,7 +177,8 @@ ipcMain.handle(
             }
 
             // 使用 ffmpeg 转换为 PCM 格式（临时文件写入 pttPath）
-            const uniqueName = `${crypto.randomUUID()}_${fileName}.pcm`;
+            const safeName = fileName.replace(/[<>:"/\\|?*]/g, '_');
+            const uniqueName = `${crypto.randomUUID()}_${safeName}.pcm`;
             const fileNewPath = path.join(pttPath, uniqueName);
 
             try {
@@ -236,7 +237,10 @@ ipcMain.handle('LiteLoader.audio_sender.copyFileToCache', async (event, oldPath,
 ipcMain.handle("LiteLoader.audio_sender.cleanupTempFile", async (event, filePath) => {
     try {
         if (filePath && (filePath.startsWith(pttPath) || filePath.startsWith(dataPath))) {
-            await fs.promises.unlink(filePath);
+            const stat = await fs.promises.stat(filePath);
+            if (stat.isFile()) {
+                await fs.promises.unlink(filePath);
+            }
         }
     } catch (error) {
         logger.warn("清理临时文件失败:", error);
