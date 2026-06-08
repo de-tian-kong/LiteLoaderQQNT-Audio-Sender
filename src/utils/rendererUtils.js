@@ -166,7 +166,7 @@ export class Contact {
         // 4. 最终检查
         if (!curAioData) {
             console.error("❌ 致命错误: 所有方法都未能获取到 curAioData。无法发送语音消息。");
-            return; // 中断执行
+            return null;
         }
 
         const uin = curAioData?.header?.uin;

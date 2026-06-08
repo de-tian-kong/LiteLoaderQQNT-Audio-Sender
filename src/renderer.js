@@ -28,6 +28,7 @@ document.addEventListener('dragover', e => {
 });
 
 document.addEventListener('drop', async e => {
+    if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
     const audioInput = document.querySelector(".audio-msg-input");
     if (audioInput !== null && (audioInput.contains(e.target) || audioInput === e.target)) {
         e.preventDefault();
@@ -42,8 +43,18 @@ document.addEventListener('drop', async e => {
             return;
         }
 
+        // 获取文件真实路径（file.path 在新版 Electron 已弃用）
+        const getFilePath = (file) => {
+            if (typeof audio_sender.getFilePath === 'function') {
+                return audio_sender.getFilePath(file);
+            }
+            return file.path; // 降级兼容
+        };
+
         // 串行处理文件，避免同时处理多个文件导致卡顿
         for (const file of files) {
+            let result = null;
+            let silkData = null;
             try {
                 // 验证文件是否为支持的音频格式
                 const ext = file.name.includes('.')
@@ -55,15 +66,15 @@ document.addEventListener('drop', async e => {
                 }
 
                 logger.info("开始处理文件:", file.name);
-                const result = await audio_sender.convertAndSaveFile(file.path);
+                result = await audio_sender.convertAndSaveFile(getFilePath(file));
                 logger.info("转换结果:", result);
 
                 if (result.res === "success") {
-                    const silkData = await audio_sender.getSilk(result.file);
+                    silkData = await audio_sender.getSilk(result.file);
                     if (silkData.res === "error") {
                         logger.warn("Silk 编码失败:", silkData.msg);
                         // 清理转换产生的临时文件
-                        if (result.file !== file.path) {
+                        if (result.file !== getFilePath(file)) {
                             await audio_sender.cleanupTempFile(result.file);
                         }
                         continue;
@@ -75,11 +86,11 @@ document.addEventListener('drop', async e => {
                     logger.info("消息发送完成");
 
                     // 清理临时 silk 文件
-                    if (silkData.path !== file.path) {
+                    if (silkData.path !== getFilePath(file)) {
                         await audio_sender.cleanupTempFile(silkData.path);
                     }
                     // 清理 ffmpeg 转换产生的临时文件
-                    if (result.file !== file.path && result.file !== silkData.path) {
+                    if (result.file !== getFilePath(file) && result.file !== silkData.path) {
                         await audio_sender.cleanupTempFile(result.file);
                     }
                 } else {
@@ -87,6 +98,13 @@ document.addEventListener('drop', async e => {
                 }
             } catch (error) {
                 logger.error("处理文件时出错:", error);
+                // 清理异常情况下可能遗留的临时文件
+                if (silkData?.path && silkData.path !== getFilePath(file)) {
+                    await audio_sender.cleanupTempFile(silkData.path).catch(() => {});
+                }
+                if (result?.file && result.file !== getFilePath(file)) {
+                    await audio_sender.cleanupTempFile(result.file).catch(() => {});
+                }
             }
         }
     }

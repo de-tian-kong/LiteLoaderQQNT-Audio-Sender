@@ -1,7 +1,9 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 // 在window对象下导出只读对象
 contextBridge.exposeInMainWorld("audio_sender", {
+    // 获取拖拽文件的真实路径（替代已弃用的 file.path）
+    getFilePath: (file) => webUtils.getPathForFile(file),
     // 生成Silk格式的语音文件
     getSilk: (path) => ipcRenderer.invoke("LiteLoader.audio_sender.getSilk", path),
     // 转换本地文件格式并保存到数据目录下
